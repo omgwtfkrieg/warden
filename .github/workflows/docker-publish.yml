@@ -1,0 +1,59 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: omgwtfkrieg
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push warden-api
+        uses: docker/build-push-action@v5
+        with:
+          context: ./warden-api
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/warden-api:latest
+
+  build-admin:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push warden-admin
+        uses: docker/build-push-action@v5
+        with:
+          context: ./warden-admin
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/warden-admin:latest
