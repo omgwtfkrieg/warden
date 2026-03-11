@@ -92,7 +92,7 @@ Access:
 
 Default admin credentials (created by seed on first boot):
 - Email: `admin@warden.local`
-- Password: `admin` — **change this immediately after first login**
+- Password: `warden-admin` — **change this immediately after first login**
 
 ### Flutter App
 
