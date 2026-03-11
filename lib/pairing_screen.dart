@@ -290,10 +290,12 @@ class CameraGridScreen extends ConsumerStatefulWidget {
   ConsumerState<CameraGridScreen> createState() => _CameraGridScreenState();
 }
 
-class _CameraGridScreenState extends ConsumerState<CameraGridScreen> {
+class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
+    with WidgetsBindingObserver {
   bool _syncing = false;
   Timer? _pollTimer;
   Timer? _healthTimer;
+  int _reconnectSignal = 0;
 
   // Server health
   bool _serverOffline = false;
@@ -308,6 +310,7 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sync();
       _checkHealth();
@@ -318,9 +321,19 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _healthTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() => _reconnectSignal++);
+      _checkHealth();
+      _sync();
+    }
   }
 
   Future<void> _checkHealth() async {
@@ -495,6 +508,7 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen> {
                     deviceToken: metadata.deviceToken,
                     onCameraFailed: _onCameraFailed,
                     onCameraConnected: _onCameraConnected,
+                    reconnectSignal: _reconnectSignal,
                   ),
           ),
         ],
@@ -513,6 +527,7 @@ class _CameraGrid extends StatelessWidget {
   final String deviceToken;
   final void Function(CameraFailureReason) onCameraFailed;
   final VoidCallback onCameraConnected;
+  final int reconnectSignal;
 
   const _CameraGrid({
     required this.cameras,
@@ -520,6 +535,7 @@ class _CameraGrid extends StatelessWidget {
     required this.deviceToken,
     required this.onCameraFailed,
     required this.onCameraConnected,
+    required this.reconnectSignal,
   });
 
   @override
@@ -578,6 +594,7 @@ class _CameraGrid extends StatelessWidget {
               autofocus: i == 0,
               onFailed: onCameraFailed,
               onConnected: onCameraConnected,
+              reconnectSignal: reconnectSignal,
             ),
           ),
         ));
@@ -603,6 +620,7 @@ class _CameraGrid extends StatelessWidget {
                       autofocus: heroes.isEmpty && idx == 0,
                       onFailed: onCameraFailed,
                       onConnected: onCameraConnected,
+                      reconnectSignal: reconnectSignal,
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -840,6 +858,7 @@ class _CameraTile extends StatefulWidget {
   final bool autofocus;
   final void Function(CameraFailureReason)? onFailed;
   final VoidCallback? onConnected;
+  final int reconnectSignal;
 
   const _CameraTile({
     super.key,
@@ -849,6 +868,7 @@ class _CameraTile extends StatefulWidget {
     this.autofocus = false,
     this.onFailed,
     this.onConnected,
+    required this.reconnectSignal,
   });
 
   @override
@@ -936,6 +956,18 @@ class _CameraTileState extends State<_CameraTile> {
       setState(() {
         _isTraditionalFocus = mode == FocusHighlightMode.traditional;
       });
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CameraTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reconnectSignal != oldWidget.reconnectSignal) {
+      _reconnectTimer?.cancel();
+      _countdownTimer?.cancel();
+      _reconnectAttempt = 0;
+      _reconnectCountdown = 0;
+      _reconnectNow();
     }
   }
 
