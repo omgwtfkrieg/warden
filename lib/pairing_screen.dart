@@ -422,7 +422,7 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
         titleSpacing: 16,
         title: Row(
           children: [
-            const Text('Warden', style: TextStyle(color: Colors.white)),
+            SvgPicture.asset('assets/logo.svg', height: 28),
             const Spacer(),
             if (_syncing)
               const SizedBox(
