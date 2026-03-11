@@ -1,0 +1,48 @@
+services:
+  go2rtc:
+    image: alexxit/go2rtc
+    container_name: warden-go2rtc
+    restart: unless-stopped
+    volumes:
+      - go2rtc-config:/config
+    networks:
+      - warden-net
+    # No ports published — internal Docker network only
+
+  warden-api:
+    build: ./warden-api
+    container_name: warden-api
+    restart: unless-stopped
+    ports:
+      - "8484:8484"
+    volumes:
+      - go2rtc-config:/go2rtc-config
+      - warden-db:/data
+    networks:
+      - warden-net
+    depends_on:
+      - go2rtc
+    environment:
+      - DB_PATH=/data/warden.db
+      - GO2RTC_URL=http://go2rtc:1984
+      - GO2RTC_CONFIG_PATH=/go2rtc-config/go2rtc.yaml
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+
+  warden-admin:
+    build: ./warden-admin
+    container_name: warden-admin
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - warden-net
+    depends_on:
+      - warden-api
+
+networks:
+  warden-net:
+    driver: bridge
+
+volumes:
+  go2rtc-config:
+  warden-db:

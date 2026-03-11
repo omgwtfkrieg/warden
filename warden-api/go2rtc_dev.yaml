@@ -1,0 +1,19 @@
+api:
+  listen: :1984
+  password: Ac3Bs7Wj5ppJlv4srr6VhxlqUBALGlwWXSYlp7kfXjE
+  username: warden
+streams:
+  camera_1:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.22:554/h264Preview_01_sub
+  camera_2:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.20:554/h264Preview_01_sub
+  camera_3:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.23:554/h264Preview_01_sub
+  camera_4:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.26:554/h264Preview_01_sub
+  camera_5:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.21:554/h264Preview_01_sub
+  camera_6:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.25:554/h264Preview_01_sub
+  camera_7:
+  - rtsp://reolink:nj7H8WG@3HEe@192.168.10.24:554/h264Preview_01_sub
