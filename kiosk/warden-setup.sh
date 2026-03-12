@@ -2,9 +2,7 @@
 set -e
 
 # --- Directories and ownership ---
-sudo chown -R warden:warden /home/warden/.config
-sudo rm -rf /home/warden/.config/systemd
-mkdir -p /home/warden/.config/systemd/user
+sudo mkdir -p /home/warden/.config/systemd/user
 sudo mkdir -p /opt/warden/app/bundle
 
 # --- start.sh ---
