@@ -12,11 +12,12 @@ set -e
 APP_DIR="/opt/warden/app"
 RELEASES_URL="https://api.github.com/repos/omgwtfkrieg/warden/releases/latest"
 mkdir -p "$APP_DIR"
-LATEST=$(curl -sf "$RELEASES_URL" | grep '"tag_name"' | cut -d'"' -f4)
+RELEASE=$(curl -sf "$RELEASES_URL")
+LATEST=$(echo "$RELEASE" | grep '"updated_at"' | head -1 | cut -d'"' -f4)
 CURRENT=""
 [ -f "$APP_DIR/version.txt" ] && CURRENT=$(cat "$APP_DIR/version.txt")
 if [ "$LATEST" != "$CURRENT" ] && [ -n "$LATEST" ]; then
-    ASSET_URL=$(curl -sf "$RELEASES_URL" | grep '"browser_download_url"' | grep 'linux' | cut -d'"' -f4)
+    ASSET_URL=$(echo "$RELEASE" | grep '"browser_download_url"' | grep 'linux' | cut -d'"' -f4)
     if [ -n "$ASSET_URL" ]; then
         echo "Updating to $LATEST..."
         curl -sfL "$ASSET_URL" -o /tmp/warden-linux.tar.gz
