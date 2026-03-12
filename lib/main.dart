@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'metadata.dart';
 import 'pairing_screen.dart';
@@ -11,6 +12,13 @@ import 'settings_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  if (defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS) {
+    await windowManager.ensureInitialized();
+    await windowManager.setFullScreen(true);
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+  }
   runApp(const ProviderScope(child: _AppLoader()));
 }
 
