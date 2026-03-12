@@ -78,5 +78,8 @@ sudo touch /var/lib/systemd/linger/warden
 # --- fix ownership ---
 sudo chown -R warden:warden /opt/warden /home/warden
 
+# --- scheduled shutdown at 23:00 ---
+echo "0 23 * * * root /sbin/shutdown -h now" | sudo tee /etc/cron.d/kiosk-shutdown > /dev/null
+
 sudo systemctl daemon-reload || true
 echo "Setup complete."
