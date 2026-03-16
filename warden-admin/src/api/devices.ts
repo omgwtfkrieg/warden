@@ -5,7 +5,9 @@ export interface Device {
   device_name: string | null
   device_model: string | null
   hardware_id: string | null
+  platform: string | null
   paired_at: string
+  last_seen_at: string | null
   revoked: boolean
 }
 
@@ -28,4 +30,6 @@ export const devicesApi = {
   delete: (id: number) => api.delete(`/devices/${id}/permanent`),
   activate: (code: string, device_name?: string) =>
     api.post('/pair/activate', { code, device_name }).then((r) => r.data),
+  sendCommand: (id: number, command: 'reconnect' | 'reload' | 'refresh') =>
+    api.post(`/devices/${id}/commands`, { command }).then((r) => r.data),
 }

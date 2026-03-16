@@ -1,15 +1,62 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, DialogContentText,
   IconButton, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Stack, Alert, Tooltip,
 } from '@mui/material'
+import AndroidIcon from '@mui/icons-material/Android'
 import BlockIcon from '@mui/icons-material/Block'
+import ComputerIcon from '@mui/icons-material/Computer'
 import DeleteIcon from '@mui/icons-material/Delete'
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows'
 import EditIcon from '@mui/icons-material/Edit'
+import LaptopMacIcon from '@mui/icons-material/LaptopMac'
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import ReplayIcon from '@mui/icons-material/Replay'
+import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { devicesApi } from '@/api/devices'
 import type { Device } from '@/api/devices'
+
+const PLATFORM_ICONS: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  linux:   { icon: ComputerIcon,        color: '#1976d2', label: 'Linux' },
+  android: { icon: AndroidIcon,         color: '#388e3c', label: 'Android' },
+  ios:     { icon: PhoneIphoneIcon,     color: '#7b1fa2', label: 'iOS' },
+  windows: { icon: DesktopWindowsIcon,  color: '#0288d1', label: 'Windows' },
+  macos:   { icon: LaptopMacIcon,       color: '#455a64', label: 'macOS' },
+}
+
+const ONLINE_THRESHOLD_MS = 90_000 // 90s — 3 missed 30s polls
+
+function isOnline(lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return false
+  return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_THRESHOLD_MS
+}
+
+function PlatformIcon({ platform }: { platform: string | null }) {
+  if (!platform) return null
+  const p = PLATFORM_ICONS[platform]
+  if (!p) return null
+  const Icon = p.icon
+  return (
+    <Tooltip title={p.label}>
+      <Icon sx={{ fontSize: 18, color: p.color }} />
+    </Tooltip>
+  )
+}
+
+function DeviceStatus({ lastSeenAt, revoked }: { lastSeenAt: string | null; revoked: boolean }) {
+  if (revoked) return <Typography variant="caption" color="text.disabled">—</Typography>
+  const online = isOnline(lastSeenAt)
+  const label = online ? 'Online' : lastSeenAt ? 'Offline' : 'Never seen'
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: online ? '#4caf50' : '#9e9e9e', flexShrink: 0 }} />
+      <Typography variant="caption" color={online ? 'success.main' : 'text.secondary'}>{label}</Typography>
+    </Stack>
+  )
+}
 
 export function DevicesPage() {
   const qc = useQueryClient()
@@ -45,6 +92,11 @@ export function DevicesPage() {
       qc.invalidateQueries({ queryKey: ['devices'] })
       setDeleteTarget(null)
     },
+  })
+
+  const commandMutation = useMutation({
+    mutationFn: ({ id, command }: { id: number; command: 'reconnect' | 'reload' | 'refresh' }) =>
+      devicesApi.sendCommand(id, command),
   })
 
   const activateMutation = useMutation({
@@ -115,9 +167,10 @@ export function DevicesPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Device Name</TableCell>
+                <TableCell>Device</TableCell>
                 <TableCell>Paired At</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Auth Status</TableCell>
+                <TableCell>Device Status</TableCell>
                 <TableCell align="right"></TableCell>
               </TableRow>
             </TableHead>
@@ -125,7 +178,8 @@ export function DevicesPage() {
               {devices.map((device) => (
                 <TableRow key={device.id}>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PlatformIcon platform={device.platform} />
                       <Box>
                         <Typography variant="body2" fontWeight={500} color={device.device_name ? 'text.primary' : 'text.disabled'}>
                           {device.device_name ?? 'Unnamed'}
@@ -156,18 +210,38 @@ export function DevicesPage() {
                       variant="outlined"
                     />
                   </TableCell>
+                  <TableCell>
+                    <DeviceStatus lastSeenAt={device.last_seen_at} revoked={device.revoked} />
+                  </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                       {!device.revoked && (
-                        <Tooltip title="Revoke access">
-                          <IconButton
-                            size="small"
-                            color="warning"
-                            onClick={() => { if (confirm('Revoke this device?')) revokeMutation.mutate(device.id) }}
-                          >
-                            <BlockIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <>
+                          <Tooltip title="Reconnect streams">
+                            <IconButton size="small" onClick={() => commandMutation.mutate({ id: device.id, command: 'reconnect' })}>
+                              <ReplayIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reload app">
+                            <IconButton size="small" onClick={() => commandMutation.mutate({ id: device.id, command: 'reload' })}>
+                              <RestartAltIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Refresh camera list">
+                            <IconButton size="small" onClick={() => commandMutation.mutate({ id: device.id, command: 'refresh' })}>
+                              <RefreshIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Revoke access">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => { if (confirm('Revoke this device?')) revokeMutation.mutate(device.id) }}
+                            >
+                              <BlockIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
                       )}
                       <Tooltip title={device.revoked ? 'Delete permanently' : 'Revoke first to delete'}>
                         <span>

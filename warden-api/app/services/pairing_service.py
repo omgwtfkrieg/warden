@@ -50,7 +50,7 @@ def _camera_list(db: Session) -> list[dict]:
 
 # ---------------------------------------------------------------------------
 
-def request_code(hardware_id: str | None, device_model: str | None, db: Session) -> PairingCode:
+def request_code(hardware_id: str | None, device_model: str | None, platform: str | None, db: Session) -> PairingCode:
     # Clean up any expired pending codes (housekeeping)
     db.query(PairingCode).filter(
         PairingCode.status == "pending",
@@ -67,6 +67,7 @@ def request_code(hardware_id: str | None, device_model: str | None, db: Session)
         expires_at=expires_at,
         hardware_id=hardware_id,
         device_model=device_model,
+        platform=platform,
     )
     db.add(record)
     db.commit()
@@ -128,6 +129,7 @@ def activate(code: str, device_name: str | None, activating_user: User, db: Sess
         existing.device_token = device_token
         existing.device_name = device_name or existing.device_name
         existing.device_model = record.device_model or existing.device_model
+        existing.platform = record.platform or existing.platform
         existing.revoked = False
         existing.paired_at = _now()
         device = existing
@@ -137,6 +139,7 @@ def activate(code: str, device_name: str | None, activating_user: User, db: Sess
             device_name=device_name,
             device_model=record.device_model,
             hardware_id=record.hardware_id,
+            platform=record.platform,
             device_token=device_token,
             revoked=False,
         )

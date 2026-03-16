@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.database import SessionLocal
 from app.models import Camera
-from app.routers import health, auth, cameras, streams, pairing, devices, users
+from app.routers import health, auth, cameras, streams, pairing, devices, users, commands
 from app.services import go2rtc_service, keepalive_service
 
 
@@ -39,4 +39,5 @@ app.include_router(cameras.router)
 app.include_router(streams.router)
 app.include_router(pairing.router)
 app.include_router(devices.router)
+app.include_router(commands.router)
 app.include_router(users.router)

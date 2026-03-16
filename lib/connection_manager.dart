@@ -115,6 +115,25 @@ class CameraConnection {
     }
   }
 
+  /// Returns the cumulative framesDecoded count from WebRTC stats, or null
+  /// if the connection is not active or stats are unavailable.
+  Future<int?> framesDecoded() async {
+    if (_pc == null || state != CameraConnectionState.connected) return null;
+    try {
+      final reports = await _pc!.getStats();
+      for (final report in reports) {
+        if (report.type == 'inbound-rtp') {
+          final kind = report.values['kind'] ?? report.values['mediaType'];
+          if (kind == 'video') {
+            final v = report.values['framesDecoded'];
+            if (v != null) return int.tryParse(v.toString());
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> disconnect() async {
     renderer.srcObject = null;
     await _pc?.close();

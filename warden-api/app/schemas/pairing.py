@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class PairRequestBody(BaseModel):
     hardware_id: str | None = None
     device_model: str | None = None
+    platform: str | None = None
 
 
 class PairRequestResponse(BaseModel):

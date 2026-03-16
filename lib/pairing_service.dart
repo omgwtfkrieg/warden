@@ -27,6 +27,16 @@ class PairApproved {
   const PairApproved({required this.deviceToken, required this.cameras});
 }
 
+/// Maps the current Flutter platform to a stable lowercase string for the backend.
+String _platformString() => switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      TargetPlatform.linux => 'linux',
+      TargetPlatform.windows => 'windows',
+      TargetPlatform.macOS => 'macos',
+      _ => 'unknown',
+    };
+
 /// Collects a stable hardware identifier and human-readable model name.
 /// Returns (hardwareId, deviceModel). Both may be null if unavailable.
 Future<(String?, String?)> _deviceInfo() async {
@@ -59,6 +69,7 @@ class PairingService {
             body: jsonEncode({
               if (hwId != null) 'hardware_id': hwId,
               if (deviceModel != null) 'device_model': deviceModel,
+              'platform': _platformString(),
             }),
           )
           .timeout(const Duration(seconds: 10));

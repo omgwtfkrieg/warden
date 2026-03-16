@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
@@ -349,6 +351,7 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
         _healthFailCount = ok ? 0 : _healthFailCount + 1;
         _serverOffline = _healthFailCount >= 2;
       });
+      if (ok) _pollCommands(metadata);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -358,7 +361,45 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
     }
   }
 
+  Future<void> _pollCommands(AppMetadata metadata) async {
+    try {
+      final resp = await http.get(
+        Uri.parse('${metadata.serverUrl}/commands/pending'),
+        headers: {'Authorization': 'Bearer ${metadata.deviceToken}'},
+      ).timeout(const Duration(seconds: 5));
+      if (!mounted || resp.statusCode != 200) return;
+
+      final json = jsonDecode(resp.body) as Map<String, dynamic>;
+      final commands = (json['commands'] as List).cast<Map<String, dynamic>>();
+      for (final cmd in commands) {
+        _executeCommand(cmd['command'] as String, cmd['id'] as int, metadata);
+      }
+    } catch (_) {}
+  }
+
+  void _executeCommand(String command, int id, AppMetadata metadata) {
+    // Acknowledge first (fire-and-forget)
+    http.post(
+      Uri.parse('${metadata.serverUrl}/commands/$id/ack'),
+      headers: {'Authorization': 'Bearer ${metadata.deviceToken}'},
+    ).ignore();
+
+    switch (command) {
+      case 'reconnect':
+        setState(() => _reconnectSignal++);
+      case 'refresh':
+        _sync();
+      case 'reload':
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const CameraGridScreen()),
+          );
+        }
+    }
+  }
+
   void _onCameraConnected() {
+    ScaffoldMessenger.of(context).clearSnackBars();
     if (!_serverOffline) return;
     // A live camera connection proves the server is reachable — clear immediately
     setState(() {
@@ -437,6 +478,8 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
                 onSelected: (value) async {
                   if (value == 'refresh') {
                     _sync();
+                  } else if (value == 'reconnect') {
+                    setState(() => _reconnectSignal++);
                   } else if (value == 'unpair') {
                     final nav = Navigator.of(context);
                     final confirmed = await showDialog<bool>(
@@ -468,6 +511,7 @@ class _CameraGridScreenState extends ConsumerState<CameraGridScreen>
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+                  PopupMenuItem(value: 'reconnect', child: Text('Reconnect all')),
                   PopupMenuItem(
                       value: 'unpair', child: Text('Unpair device')),
                 ],
@@ -889,6 +933,13 @@ class _CameraTileState extends State<_CameraTile> {
   Timer? _reconnectTimer;
   Timer? _countdownTimer;
 
+  // Stale frame detection
+  Timer? _staleTimer;
+  int? _lastFramesDecoded;
+  int _frozenChecks = 0;
+  bool _streamFrozen = false;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _frozenSnackBar;
+
   @override
   void initState() {
     super.initState();
@@ -902,7 +953,9 @@ class _CameraTileState extends State<_CameraTile> {
         setState(() => _connState = s);
         if (s == CameraConnectionState.connected) {
           widget.onConnected?.call();
+          _startStaleCheck();
         } else if (s == CameraConnectionState.failed) {
+          _stopStaleCheck();
           if (_conn.failureReason != null) {
             widget.onFailed?.call(_conn.failureReason!);
           }
@@ -919,13 +972,21 @@ class _CameraTileState extends State<_CameraTile> {
     _connect();
   }
 
+  // On Linux kiosk, retry indefinitely — cap at the longest backoff interval.
+  static bool get _infiniteRetry =>
+      defaultTargetPlatform == TargetPlatform.linux;
+
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     _countdownTimer?.cancel();
 
     if (_reconnectAttempt >= _backoffSeconds.length) {
-      // Max attempts reached — wait for manual retry
-      return;
+      if (!_infiniteRetry) {
+        // Max attempts reached — wait for manual retry
+        return;
+      }
+      // Kiosk: keep retrying at the longest interval forever
+      _reconnectAttempt = _backoffSeconds.length - 1;
     }
 
     final delay = _backoffSeconds[_reconnectAttempt];
@@ -946,9 +1007,51 @@ class _CameraTileState extends State<_CameraTile> {
 
   Future<void> _reconnectNow() async {
     if (!mounted) return;
+    _stopStaleCheck();
     setState(() => _connState = CameraConnectionState.idle);
     await _conn.disconnect();
     await _conn.connect();
+  }
+
+  void _startStaleCheck() {
+    _staleTimer?.cancel();
+    _lastFramesDecoded = null;
+    _frozenChecks = 0;
+    _staleTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      final frames = await _conn.framesDecoded();
+      if (!mounted || frames == null) return;
+      if (_lastFramesDecoded != null && frames == _lastFramesDecoded) {
+        _frozenChecks++;
+        if (_frozenChecks == 2 && !_streamFrozen) {
+          _streamFrozen = true;
+          _frozenSnackBar = ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${widget.camera.name}: stream may be frozen'),
+            duration: const Duration(seconds: 10),
+            backgroundColor: const Color(0xFF5C3A00),
+          ));
+        }
+      } else {
+        if (_streamFrozen) {
+          _streamFrozen = false;
+          _frozenSnackBar?.close();
+          _frozenSnackBar = null;
+        }
+        _frozenChecks = 0;
+      }
+      _lastFramesDecoded = frames;
+    });
+  }
+
+  void _stopStaleCheck() {
+    _staleTimer?.cancel();
+    _staleTimer = null;
+    _lastFramesDecoded = null;
+    _frozenChecks = 0;
+    if (_streamFrozen) {
+      _streamFrozen = false;
+      _frozenSnackBar?.close();
+      _frozenSnackBar = null;
+    }
   }
 
   void _onHighlightModeChanged(FocusHighlightMode mode) {
@@ -980,6 +1083,7 @@ class _CameraTileState extends State<_CameraTile> {
   void dispose() {
     _reconnectTimer?.cancel();
     _countdownTimer?.cancel();
+    _staleTimer?.cancel();
     FocusManager.instance.removeHighlightModeListener(_onHighlightModeChanged);
     _focusNode.dispose();
     _conn.dispose();
@@ -1006,10 +1110,12 @@ class _CameraTileState extends State<_CameraTile> {
         const SizedBox(height: 4),
         if (autoRetrying)
           Text(
-            'Retrying in ${_reconnectCountdown}s ($attemptsLeft left)',
+            _infiniteRetry
+                ? 'Retrying in ${_reconnectCountdown}s'
+                : 'Retrying in ${_reconnectCountdown}s ($attemptsLeft left)',
             style: const TextStyle(color: Colors.white24, fontSize: 9),
           )
-        else
+        else if (!_infiniteRetry)
           Text(
             attemptsLeft <= 0 ? 'Auto-retry exhausted' : '',
             style: const TextStyle(color: Colors.white24, fontSize: 9),

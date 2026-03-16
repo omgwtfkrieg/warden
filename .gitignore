@@ -47,6 +47,7 @@ app.*.map.json
 # Warden backend
 warden-api/.env
 warden-api/.venv/
+warden-api/venv/
 warden-api/warden_dev.db
 warden-api/__pycache__/
 warden-api/**/__pycache__/
@@ -62,3 +63,5 @@ warden-admin/.vite/
 # go2rtc binary
 /go2rtc
 
+kiosk/debian-preseed-*.local.cfg
+kiosk/iso-build/warden-kiosk-acer.iso

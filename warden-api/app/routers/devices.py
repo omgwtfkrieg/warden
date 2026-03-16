@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import require_permission
 from app.models import User
+from app.schemas.command import CommandCreate, CommandResponse
 from app.schemas.device import DeviceResponse, DeviceRenameBody
-from app.services import pairing_service
+from app.services import pairing_service, command_service
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -44,3 +45,14 @@ def delete_device(
     user: User = Depends(require_permission("devices:write")),
 ):
     pairing_service.delete_device(device_id, user, db)
+
+
+@router.post("/{device_id}/commands", response_model=CommandResponse, status_code=201)
+def send_command(
+    device_id: int,
+    body: CommandCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("devices:write")),
+):
+    """Admin panel sends a command to a device."""
+    return command_service.create_command(device_id, body.command, user, db)

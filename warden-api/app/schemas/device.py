@@ -13,5 +13,7 @@ class DeviceResponse(BaseModel):
     device_name: str | None
     device_model: str | None
     hardware_id: str | None
+    platform: str | None
     paired_at: datetime
+    last_seen_at: datetime | None
     revoked: bool

@@ -15,5 +15,6 @@ class PairingCode(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     hardware_id = Column(String(255), nullable=True)
     device_model = Column(String(255), nullable=True)
+    platform = Column(String(20), nullable=True)
 
     user = relationship("User")

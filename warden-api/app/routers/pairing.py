@@ -19,7 +19,7 @@ router = APIRouter(prefix="/pair", tags=["pairing"])
 @router.post("/request", response_model=PairRequestResponse)
 def request_code(payload: PairRequestBody = PairRequestBody(), db: Session = Depends(get_db)):
     """Flutter app calls this to get a pairing code. No auth required."""
-    record = pairing_service.request_code(payload.hardware_id, payload.device_model, db)
+    record = pairing_service.request_code(payload.hardware_id, payload.device_model, payload.platform, db)
     return PairRequestResponse(
         code=record.code,
         qr_payload=record.code,
