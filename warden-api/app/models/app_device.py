@@ -14,7 +14,7 @@ class AppDevice(Base):
     hardware_id = Column(String(255), nullable=True, index=True)
     platform = Column(String(20), nullable=True)
     device_token = Column(String(255), unique=True, nullable=False, index=True)
-    paired_at = Column(DateTime, nullable=False, server_default=func.now())
+    paired_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     revoked = Column(Boolean, nullable=False, default=False)
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
 

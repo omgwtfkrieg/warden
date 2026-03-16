@@ -141,6 +141,7 @@ def activate(code: str, device_name: str | None, activating_user: User, db: Sess
             hardware_id=record.hardware_id,
             platform=record.platform,
             device_token=device_token,
+            paired_at=_now(),
             revoked=False,
         )
         db.add(device)
